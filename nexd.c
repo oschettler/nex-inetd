@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <ctype.h>
+#include <syslog.h>
 
 #define BUFFER_SIZE 4096
 #define MAX_PATH_LEN 1024
@@ -37,8 +38,45 @@ static int compare_strings(const void* a, const void* b) {
     return strcmp(*(const char**)a, *(const char**)b);
 }
 
+/* Find index file in directory (index.*) */
+static char* find_index_file(const char* dirpath) {
+    DIR* dir = opendir(dirpath);
+    if (!dir) {
+        return NULL;
+    }
+    
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL) {
+        /* Check if filename starts with "index." */
+        if (strncmp(entry->d_name, "index.", 6) == 0) {
+            /* Build full path */
+            char fullpath[MAX_PATH_LEN];
+            snprintf(fullpath, sizeof(fullpath), "%s/%s", dirpath, entry->d_name);
+            
+            /* Verify it's a regular file */
+            struct stat st;
+            if (stat(fullpath, &st) == 0 && S_ISREG(st.st_mode)) {
+                closedir(dir);
+                return strdup(fullpath);
+            }
+        }
+    }
+    
+    closedir(dir);
+    return NULL;
+}
+
 /* Serve a directory listing */
 static int serve_directory(const char* dirpath, const char* request_path) {
+    /* Check for index file first */
+    char* index_path = find_index_file(dirpath);
+    if (index_path) {
+        int result = serve_file(index_path);
+        free(index_path);
+        return result;
+    }
+    
+    /* No index file found, generate directory listing */
     DIR* dir = opendir(dirpath);
     if (!dir) {
         return 1;
@@ -150,10 +188,29 @@ static int normalize_path(const char* base_dir, const char* request_path, char* 
     return is_safe ? 0 : -1;
 }
 
+/* Log request to syslog */
+static void log_request(const char* ip, const char* path, char status) {
+    /* Log to syslog (syslog adds timestamp automatically) */
+    syslog(LOG_INFO, "%s \"%s\" %c", ip, path, status);
+}
+
 int main(int argc, char* argv[]) {
+    /* Initialize syslog */
+    openlog("nexd", LOG_PID, LOG_DAEMON);
+    
+    /* Get client IP address from environment (set by inetd/xinetd) */
+    const char* client_ip = getenv("TCPREMOTEIP");
+    if (!client_ip) {
+        client_ip = getenv("REMOTE_ADDR");  /* fallback for some setups */
+    }
+    if (!client_ip) {
+        client_ip = "0.0.0.0";  /* fallback if no environment variable */
+    }
+    
     /* Check arguments */
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <directory>\n", argv[0]);
+        closelog();
         return 1;
     }
     
@@ -163,12 +220,15 @@ int main(int argc, char* argv[]) {
     struct stat st;
     if (stat(serve_dir, &st) != 0 || !S_ISDIR(st.st_mode)) {
         fprintf(stderr, "Error: '%s' is not a valid directory\n", serve_dir);
+        closelog();
         return 1;
     }
     
     /* Read request from stdin */
     char request[MAX_PATH_LEN];
     if (!fgets(request, sizeof(request), stdin)) {
+        log_request(client_ip, "", 'E');
+        closelog();
         return 1;
     }
     
@@ -181,20 +241,41 @@ int main(int argc, char* argv[]) {
     /* Normalize and validate path */
     char fullpath[MAX_PATH_LEN];
     if (normalize_path(serve_dir, request, fullpath, sizeof(fullpath)) != 0) {
+        log_request(client_ip, request, 'E');
+        closelog();
         return 1;
     }
     
     /* Check if path exists */
     if (stat(fullpath, &st) != 0) {
+        log_request(client_ip, request, 'E');
+        closelog();
         return 1;
     }
     
     /* Serve file or directory */
+    int result;
     if (S_ISDIR(st.st_mode)) {
-        return serve_directory(fullpath, request);
+        result = serve_directory(fullpath, request);
+        if (result == 0) {
+            log_request(client_ip, request, 'D');
+        } else {
+            log_request(client_ip, request, 'E');
+        }
+        closelog();
+        return result;
     } else if (S_ISREG(st.st_mode)) {
-        return serve_file(fullpath);
+        result = serve_file(fullpath);
+        if (result == 0) {
+            log_request(client_ip, request, 'F');
+        } else {
+            log_request(client_ip, request, 'E');
+        }
+        closelog();
+        return result;
     } else {
+        log_request(client_ip, request, 'E');
+        closelog();
         return 1;
     }
     

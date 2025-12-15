@@ -150,73 +150,12 @@ The test suite validates:
 - Error handling
 - Edge cases
 
-## Protocol Details
-
-The Nex protocol is a simple text-based protocol:
-
-**Request Format:**
-```
-<path>\r\n
-```
-
-**Response Format:**
-```
-<status> <meta>\r\n
-<content>
-```
-
-**Status Codes:**
-- `2`: Success
-- `3`: Redirect
-- `4`: Temporary failure
-- `5`: Permanent failure
-
-**Examples:**
-
-Request a file:
-```
-/hello.txt\r\n
-```
-
-Response:
-```
-2 text/plain\r\n
-Hello, Nex!
-```
-
-Request a directory:
-```
-/subdir/\r\n
-```
-
-Response:
-```
-2 text/plain\r\n
-/subdir/file1.txt
-/subdir/file2.txt
-/subdir/folder/
-```
-
 ## Security
 
 - **Path Canonicalization**: Uses `realpath()` to resolve paths and prevent directory traversal
 - **Base Directory Validation**: Ensures all served paths are within the specified directory
 - **Hidden File Protection**: Does not list files starting with `.`
 - **No Execution**: Only serves static files, no code execution
-
-## Supported MIME Types
-
-- `.txt` → `text/plain`
-- `.html`, `.htm` → `text/html`
-- `.gmi` → `text/gemini`
-- `.md` → `text/markdown`
-- `.jpg`, `.jpeg` → `image/jpeg`
-- `.png` → `image/png`
-- `.gif` → `image/gif`
-- `.pdf` → `application/pdf`
-- `.json` → `application/json`
-- `.xml` → `application/xml`
-- Other files → `application/octet-stream`
 
 ## Development
 
@@ -244,7 +183,7 @@ Response:
 
 ## License
 
-This project is free and open source. Feel free to use, modify, and distribute as needed.
+See file LICENSE.txt.
 
 ## Contributing
 
@@ -255,4 +194,8 @@ Contributions are welcome! Please ensure:
 
 ## Author
 
-Created as a simple, educational implementation of the Nex protocol server for inetd.
+Dr. Olav Schettler
+
+## AI Use
+
+The code was created with the help of Cline & Anthropic Claude Sonnet 4.5.
