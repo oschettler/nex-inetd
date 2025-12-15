@@ -179,7 +179,7 @@ The test suite validates:
 ## Links
 
 - [Nex Protocol Specification](https://nightfall.city/nex/info/specification.txt)
-- [Reference Implementation](https://hg.sr.ht/~m15o/nexd/)
+- [Reference Implementation](https://hg.sr.ht/~m15o/nexd)
 
 ## License
 
