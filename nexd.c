@@ -14,50 +14,12 @@
 #define BUFFER_SIZE 4096
 #define MAX_PATH_LEN 1024
 
-/* Get MIME type based on file extension */
-static const char* get_mime_type(const char* path) {
-    const char* ext = strrchr(path, '.');
-    if (!ext) return "application/octet-stream";
-    
-    if (strcmp(ext, ".txt") == 0) return "text/plain";
-    if (strcmp(ext, ".html") == 0 || strcmp(ext, ".htm") == 0) return "text/html";
-    if (strcmp(ext, ".gmi") == 0) return "text/gemini";
-    if (strcmp(ext, ".md") == 0) return "text/markdown";
-    if (strcmp(ext, ".jpg") == 0 || strcmp(ext, ".jpeg") == 0) return "image/jpeg";
-    if (strcmp(ext, ".png") == 0) return "image/png";
-    if (strcmp(ext, ".gif") == 0) return "image/gif";
-    if (strcmp(ext, ".pdf") == 0) return "application/pdf";
-    if (strcmp(ext, ".json") == 0) return "application/json";
-    if (strcmp(ext, ".xml") == 0) return "application/xml";
-    
-    return "application/octet-stream";
-}
-
-/* Send error response */
-static void send_error(int status, const char* message) {
-    printf("%d %s\r\n", status, message);
-    fflush(stdout);
-}
-
-/* Send success header */
-static void send_success(const char* mime_type) {
-    printf("2 %s\r\n", mime_type);
-    fflush(stdout);
-}
-
 /* Serve a regular file */
 static int serve_file(const char* filepath) {
     FILE* fp = fopen(filepath, "rb");
     if (!fp) {
-        if (errno == EACCES) {
-            send_error(5, "ACCESS DENIED");
-        } else {
-            send_error(5, "FILE NOT FOUND");
-        }
         return 1;
     }
-    
-    send_success(get_mime_type(filepath));
     
     unsigned char buffer[BUFFER_SIZE];
     size_t bytes;
@@ -79,11 +41,6 @@ static int compare_strings(const void* a, const void* b) {
 static int serve_directory(const char* dirpath, const char* request_path) {
     DIR* dir = opendir(dirpath);
     if (!dir) {
-        if (errno == EACCES) {
-            send_error(5, "ACCESS DENIED");
-        } else {
-            send_error(5, "DIRECTORY NOT FOUND");
-        }
         return 1;
     }
     
@@ -104,7 +61,6 @@ static int serve_directory(const char* dirpath, const char* request_path) {
             entries = realloc(entries, entry_capacity * sizeof(char*));
             if (!entries) {
                 closedir(dir);
-                send_error(4, "OUT OF MEMORY");
                 return 1;
             }
         }
@@ -112,7 +68,6 @@ static int serve_directory(const char* dirpath, const char* request_path) {
         entries[entry_count] = strdup(entry->d_name);
         if (!entries[entry_count]) {
             closedir(dir);
-            send_error(4, "OUT OF MEMORY");
             return 1;
         }
         entry_count++;
@@ -123,8 +78,6 @@ static int serve_directory(const char* dirpath, const char* request_path) {
     if (entry_count > 0) {
         qsort(entries, entry_count, sizeof(char*), compare_strings);
     }
-    
-    send_success("text/plain");
     
     /* Ensure request path ends with / */
     char base_path[MAX_PATH_LEN];
@@ -142,9 +95,9 @@ static int serve_directory(const char* dirpath, const char* request_path) {
         
         struct stat st;
         if (stat(fullpath, &st) == 0 && S_ISDIR(st.st_mode)) {
-            printf("%s%s/\n", base_path, entries[i]);
+            printf("=> %s%s/\n", base_path, entries[i]);
         } else {
-            printf("%s%s\n", base_path, entries[i]);
+            printf("=> %s%s\n", base_path, entries[i]);
         }
         
         free(entries[i]);
@@ -216,7 +169,6 @@ int main(int argc, char* argv[]) {
     /* Read request from stdin */
     char request[MAX_PATH_LEN];
     if (!fgets(request, sizeof(request), stdin)) {
-        send_error(4, "BAD REQUEST");
         return 1;
     }
     
@@ -229,13 +181,11 @@ int main(int argc, char* argv[]) {
     /* Normalize and validate path */
     char fullpath[MAX_PATH_LEN];
     if (normalize_path(serve_dir, request, fullpath, sizeof(fullpath)) != 0) {
-        send_error(5, "NOT FOUND");
         return 1;
     }
     
     /* Check if path exists */
     if (stat(fullpath, &st) != 0) {
-        send_error(5, "NOT FOUND");
         return 1;
     }
     
@@ -245,7 +195,6 @@ int main(int argc, char* argv[]) {
     } else if (S_ISREG(st.st_mode)) {
         return serve_file(fullpath);
     } else {
-        send_error(5, "UNSUPPORTED FILE TYPE");
         return 1;
     }
     
