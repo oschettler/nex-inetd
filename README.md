@@ -1,6 +1,6 @@
-# Nex Daemon for Inetd
+# Nex and Spartan Daemons for Inetd
 
-A simple, lightweight Nex protocol server written in C99, designed to work with inetd/xinetd to serve static files and directories.
+Simple, lightweight servers for the Nex and Spartan protocols written in C99, designed to work with inetd/xinetd to serve static files and directories.
 
 ## Features
 
@@ -11,6 +11,7 @@ A simple, lightweight Nex protocol server written in C99, designed to work with 
 - **MIME Type Detection**: Serves files with appropriate MIME types
 - **Zero Configuration**: Simple command-line interface
 - **Lightweight**: Minimal dependencies and memory footprint
+- **Spartan Protocol**: Full support for the spartan:// protocol (port 300)
 
 ## Building
 
@@ -26,7 +27,7 @@ A simple, lightweight Nex protocol server written in C99, designed to work with 
 make
 ```
 
-This will produce the `nexd` binary.
+This will produce the `nexd` and `spartand` binaries.
 
 ### Installation
 
@@ -46,13 +47,14 @@ make install PREFIX=/opt/local
 
 ### Standalone Testing
 
-For testing purposes, you can run the server directly:
+For testing purposes, you can run the servers directly:
 
 ```bash
 echo -e "/file.txt\r" | ./nexd /path/to/directory
+printf "example.com /file.txt 0\r\n" | ./spartand /path/to/directory
 ```
 
-### With Inetd
+### Nex with Inetd
 
 1. **Add to `/etc/services`** (if not already present):
 
@@ -67,6 +69,26 @@ nex stream tcp nowait nobody /usr/local/bin/nexd nexd /var/www/nex
 ```
 
 Replace `/var/www/nex` with your content directory.
+
+3. **Reload inetd**:
+
+```bash
+sudo killall -HUP inetd
+```
+
+### Spartan with Inetd
+
+1. **Add to `/etc/services`** (if not already present):
+
+```
+spartan  300/tcp  # Spartan Protocol
+```
+
+2. **Configure inetd** in `/etc/inetd.conf`:
+
+```
+spartan stream tcp nowait nobody /usr/local/bin/spartand spartand /var/www/spartan
+```
 
 3. **Reload inetd**:
 
@@ -89,6 +111,23 @@ service nex
     user            = nobody
     server          = /usr/local/bin/nexd
     server_args     = /var/www/nex
+    log_on_failure  += USERID
+}
+```
+
+Create `/etc/xinetd.d/spartan`:
+
+```
+service spartan
+{
+    disable         = no
+    socket_type     = stream
+    protocol        = tcp
+    port            = 300
+    wait            = no
+    user            = nobody
+    server          = /usr/local/bin/spartand
+    server_args     = /var/www/spartan
     log_on_failure  += USERID
 }
 ```
@@ -128,11 +167,38 @@ StandardOutput=socket
 User=nobody
 ```
 
+Create `/etc/systemd/system/spartan.socket`:
+
+```ini
+[Unit]
+Description=Spartan Protocol Socket
+
+[Socket]
+ListenStream=300
+Accept=yes
+
+[Install]
+WantedBy=sockets.target
+```
+
+Create `/etc/systemd/system/spartan@.service`:
+
+```ini
+[Unit]
+Description=Spartan Protocol Server
+
+[Service]
+ExecStart=/usr/local/bin/spartand /var/www/spartan
+StandardInput=socket
+StandardOutput=socket
+User=nobody
+```
+
 Enable and start:
 
 ```bash
-sudo systemctl enable nex.socket
-sudo systemctl start nex.socket
+sudo systemctl enable nex.socket nex.service spartan.socket spartan.service
+sudo systemctl start nex.socket spartan.socket
 ```
 
 ## Testing
@@ -163,7 +229,8 @@ The test suite validates:
 
 ```
 .
-├── nexd.c          # Main server implementation
+├── nexd.c          # Nex protocol server implementation
+├── spartand.c      # Spartan protocol server implementation
 ├── Makefile        # Build configuration
 ├── test.sh         # Test suite
 └── README.md       # Documentation
@@ -179,7 +246,8 @@ The test suite validates:
 ## Links
 
 - [Nex Protocol Specification](https://nightfall.city/nex/info/specification.txt)
-- [Reference Implementation](https://hg.sr.ht/~m15o/nexd)
+- [Nex Reference Implementation](https://hg.sr.ht/~m15o/nexd)
+- [Spartan Protocol Specification](https://spartan.mozz.us/specification.gmi)
 
 ## License
 

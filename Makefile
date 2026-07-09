@@ -1,25 +1,29 @@
 CC = gcc
 CFLAGS = -std=c99 -Wall -Wextra -pedantic
 LDFLAGS =
-TARGET = nexd
+TARGETS = nexd spartand
 PREFIX ?= /usr/local
 
 .PHONY: all clean install uninstall test
 
-all: $(TARGET)
+all: $(TARGETS)
 
-$(TARGET): nexd.c
-	$(CC) $(CFLAGS) -o $(TARGET) nexd.c $(LDFLAGS)
+nexd: nexd.c
+	$(CC) $(CFLAGS) -o nexd nexd.c $(LDFLAGS)
+
+spartand: spartand.c
+	$(CC) $(CFLAGS) -o spartand spartand.c $(LDFLAGS)
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGETS)
 
-install: $(TARGET)
+install: $(TARGETS)
 	install -d $(PREFIX)/bin
-	install -m 755 $(TARGET) $(PREFIX)/bin/
+	install -m 755 nexd $(PREFIX)/bin/
+	install -m 755 spartand $(PREFIX)/bin/
 
 uninstall:
-	rm -f $(PREFIX)/bin/$(TARGET)
+	rm -f $(PREFIX)/bin/nexd $(PREFIX)/bin/spartand
 
-test: $(TARGET)
+test: $(TARGETS)
 	./test.sh
