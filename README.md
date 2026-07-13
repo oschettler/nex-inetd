@@ -249,6 +249,14 @@ The test suite validates:
 - [Nex Reference Implementation](https://hg.sr.ht/~m15o/nexd)
 - [Spartan Protocol Specification](https://spartan.mozz.us/specification.gmi)
 
+### Other Spartan Servers in C
+
+- [Spartserv - Simple client and server for the spartan protocol (c)](https://noulin.net/spartserv/file/README.md.html)
+- [Saeko - A spartan spartan server (c)](https://github.com/hachiya-kurisu/saeko)
+- [lspart - A minimal server for the Spartan protocol (c)](https://github.com/kevinboone/lspart)
+
+See [Spartan Software](spartan://mozz.us/software.gmi) for more Spartan software.
+
 ## License
 
 See file LICENSE.txt.
